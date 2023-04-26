@@ -1,0 +1,54 @@
+<#
+.SYNOPSIS
+Delete multiple devices from Intune 
+
+.DESCRIPTION
+This script uses Azure App registration and MS Graph permissions to delete multiple devices from Intune. Necessary permissions are required to run this script/perform activities in AAD.
+Please proceed with caution as the actions are irreversible
+
+.EXAMPLE
+'.\Delete_Multiple_Devices.ps1'
+
+.NOTES
+Author: Sonu Peter George
+Version: 1.0
+#>
+
+#Script start
+
+#Graph API version
+$graphEndpoint = "https://graph.microsoft.com"
+$graphVersion = "v1.0"
+
+#Intune credentials
+$tenantName = "<Tenant name>"
+$appClientId = "<Application Client ID>"
+$appClientSecret = "<Application Client Secret Value(NOT ID)>"
+
+#Add intune deviceIDs in each columns eg: Col 1: {6168e71aasa-230f-436e-8ba8-8889007f4c96}. Col 2: {7016fa3aec5-10cc-4352-a257-5e40aee0a3c9}
+
+#import CSV file
+$devicedata = Get-Content -Path "<CSV file path>" | ConvertFrom-Csv
+$devices = $devicedata.<CSV header>
+$deviceIds = @($devices)
+
+#Graph API authentication
+$authUri = "https://login.microsoftonline.com/$tenantName/oauth2/v2.0/token"
+$authBody = @{
+    client_id     = $appClientId
+    client_secret = $appClientSecret
+    scope         = "https://graph.microsoft.com/.default"
+    grant_type    = "client_credentials"
+}
+$authResult = Invoke-RestMethod -Uri $authUri -Method Post -Body $authBody
+$accessToken = $authResult.access_token
+
+#Device deletion
+foreach ($deviceId in $deviceIds) {
+    $deleteUri = "$graphEndpoint/$graphVersion/deviceManagement/managedDevices/$deviceId"
+    $headers = @{
+        Authorization = "Bearer $accessToken"
+    }
+    Invoke-RestMethod -Uri $deleteUri -Method Delete -Headers $headers
+    Write-Output $deviceId has been deleted
+}
